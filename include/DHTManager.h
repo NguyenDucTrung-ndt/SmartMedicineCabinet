@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 5/15: include/DHTManager.h ------
-// ==========================================
 #ifndef DHT_MANAGER_H
 #define DHT_MANAGER_H
 

@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 16/17: src/RTCManager.cpp -------
-// ==========================================
 #include "RTCManager.h"
 
 RTCManager::RTCManager(RTC_DS1307& rtcRef)

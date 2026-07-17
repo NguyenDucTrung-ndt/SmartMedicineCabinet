@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 9/15: include/LockManager.h -----
-// ==========================================
 #ifndef LOCK_MANAGER_H
 #define LOCK_MANAGER_H
 

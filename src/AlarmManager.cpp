@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 4/15: src/AlarmManager.cpp ------
-// ==========================================
 #include "AlarmManager.h"
 
 AlarmManager::AlarmManager(uint8_t buzzerPinValue)

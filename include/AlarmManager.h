@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 3/15: include/AlarmManager.h ----
-// ==========================================
 #ifndef ALARM_MANAGER_H
 #define ALARM_MANAGER_H
 

@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 15/17: include/RTCManager.h -----
-// ==========================================
 #ifndef RTC_MANAGER_H
 #define RTC_MANAGER_H
 

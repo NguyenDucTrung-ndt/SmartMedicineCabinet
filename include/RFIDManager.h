@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 13/15: include/RFIDManager.h ----
-// ==========================================
 #ifndef RFID_MANAGER_H
 #define RFID_MANAGER_H
 

@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 11/15: include/PasswordManager.h
-// ==========================================
 #ifndef PASSWORD_MANAGER_H
 #define PASSWORD_MANAGER_H
 

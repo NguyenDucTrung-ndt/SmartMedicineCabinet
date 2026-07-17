@@ -1,6 +1,3 @@
-// ==========================================
-// --- FILE 12/15: src/PasswordManager.cpp --
-// ==========================================
 #include "PasswordManager.h"
 
 PasswordManager::PasswordManager(Keypad& keypadRef)
