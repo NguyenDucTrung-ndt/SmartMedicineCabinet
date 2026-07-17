@@ -32,12 +32,12 @@ constexpr uint8_t RFID_RST_PIN = 9;
 // --- Security and Timing thresholds ---
 constexpr uint8_t PASSWORD_LENGTH = 4;   
 constexpr uint8_t MAX_WRONG_ATTEMPTS = 3; 
-constexpr unsigned long DOOR_OPEN_DURATION_MS = 5000UL;  
-constexpr unsigned long LOCK_DURATION_MS = 30000UL;      
-constexpr unsigned long DHT_SAMPLE_INTERVAL_MS = 2000UL; 
+constexpr unsigned long DOOR_OPEN_DURATION_MS = 5000UL; //5 giay 
+constexpr unsigned long LOCK_DURATION_MS = 30000UL;     //30 giay 
+constexpr unsigned long DHT_SAMPLE_INTERVAL_MS = 2000UL; //2 giay
 // --- Đã sửa: Cấu hình giới hạn nhiệt độ 15-30 độ C và độ ẩm tối đa 75% ---
 constexpr float TEMPERATURE_MIN = 15.0f;          
-constexpr float TEMPERATURE_MAX = 30.0f;          
+constexpr float TEMPERATURE_MAX = 50.0f;          
 constexpr float HUMIDITY_MAX = 75.0f;           
 
 // --- Cấu trúc quản lý thẻ động hỗ trợ cả 4-byte và 7-byte ---
