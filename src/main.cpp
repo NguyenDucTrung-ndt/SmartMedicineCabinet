@@ -1,89 +1,210 @@
-#include <Arduino.h>
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
-#include <RTClib.h>
-#include <DHT.h>
-#include <Servo.h>
-#include <Keypad.h>
+// ==========================================
+// --- FILE 17/17: src/main.cpp -------------
+// ==========================================
 #include <SPI.h>
-#include <MFRC522.h>
+#include <Wire.h>
+#include <RTClib.h>
+#include "Config.h"
+#include "AlarmManager.h"
+#include "DHTManager.h"
+#include "Display.h"
+#include "LockManager.h"
+#include "PasswordManager.h"
+#include "RFIDManager.h"
+#include "RTCManager.h"
 
-// Định nghĩa chân
-#define DHTPIN 2
-#define SERVO_PIN 3
-#define BUZZER 4
-#define LED_G 5
-#define LED_R 6
-#define RST_PIN 9
-#define SS_PIN 10
+// --- Global instances ---
+LiquidCrystal_I2C lcd(LCD_ADDRESS, LCD_COLUMNS, LCD_ROWS);
+Display display(lcd);
 
-// Khởi tạo đối tượng
-LiquidCrystal_I2C lcd(0x27, 20, 4);
 RTC_DS1307 rtc;
-DHT dht(DHTPIN, DHT22);
-Servo servo;
-MFRC522 rfid(SS_PIN, RST_PIN);
+RTCManager rtcManager(rtc);
 
-// Cấu hình Keypad
-const byte ROWS = 4, COLS = 4;
-char keys[ROWS][COLS] = {
-  {'1','2','3','A'}, {'4','5','6','B'}, {'7','8','9','C'}, {'*','0','#','D'}
+MFRC522 rfid(RFID_SS_PIN, RFID_RST_PIN);
+RFIDManager rfidManager(rfid);
+
+char keyMap[4][4] = {
+    {'1', '2', '3', 'A'},
+    {'4', '5', '6', 'B'},
+    {'7', '8', '9', 'C'},
+    {'*', '0', '#', 'D'}
 };
-byte rowPins[ROWS] = {A0, A1, A2, A3};
-byte colPins[COLS] = {7, 8, 0, 1};
-Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+byte rowPins[] = {KEYPAD_ROW_PIN_1, KEYPAD_ROW_PIN_2, KEYPAD_ROW_PIN_3, KEYPAD_ROW_PIN_4};
+byte colPins[] = {KEYPAD_COL_PIN_1, KEYPAD_COL_PIN_2, KEYPAD_COL_PIN_3, KEYPAD_COL_PIN_4};
+Keypad keypad(makeKeymap(keyMap), rowPins, colPins, 4, 4);
+PasswordManager passwordManager(keypad);
+
+DHT dht(DHT_PIN, DHT22);
+DHTManager dhtManager(dht);
+
+AlarmManager alarmManager(BUZZER_PIN);
+
+Servo servo;
+LockManager lockManager(servo);
+
+// --- Program States ---
+bool isStartupActive = true;       
+unsigned long startupTimeMs = 0;   
+bool lastWarningState = false;      
+
+enum class TemporaryMessage {
+    None, PasswordAccepted, PasswordDenied, RfidAccepted, RfidDenied
+};
+
+TemporaryMessage activeMessage = TemporaryMessage::None;
+unsigned long messageUntilMs = 0;
+
+void showTemporaryMessage(TemporaryMessage message, unsigned long durationMs) {
+    activeMessage = message;
+    messageUntilMs = millis() + durationMs;
+}
 
 void setup() {
-  Serial.begin(9600);
-  SPI.begin();
-  rfid.PCD_Init();
-  dht.begin();
-  rtc.begin();
-  lcd.init();
-  lcd.backlight();
-  
-  pinMode(BUZZER, OUTPUT);
-  pinMode(LED_G, OUTPUT);
-  pinMode(LED_R, OUTPUT);
-  servo.attach(SERVO_PIN);
-  
-  // Test nhanh ngoại vi lúc khởi động (Bíp 1 tiếng, nháy LED)
-  digitalWrite(LED_G, HIGH); digitalWrite(LED_R, HIGH);
-  tone(BUZZER, 1000, 100); delay(200);
-  digitalWrite(LED_G, LOW);  digitalWrite(LED_R, LOW);
-  servo.write(0);
+    // CHÚ Ý QUAN TRỌNG: Không dùng Serial.begin() để tránh liệt bàn phím.
+    
+    pinMode(LED_GREEN_PIN, OUTPUT);
+    pinMode(LED_RED_PIN, OUTPUT);
+    digitalWrite(LED_GREEN_PIN, HIGH);
+    digitalWrite(LED_RED_PIN, LOW);
+
+    display.begin();
+    rtcManager.begin();
+    rfidManager.begin();
+    passwordManager.begin();
+    dhtManager.begin();
+    alarmManager.begin();
+    lockManager.begin();
+
+    startupTimeMs = millis();
+    isStartupActive = true;
+    display.showStartup();
+    display.update();
 }
 
 void loop() {
-  // 1. Đọc và hiện RTC + DHT22 lên LCD
-  DateTime now = rtc.now();
-  lcd.setCursor(0, 0);
-  lcd.print("Time: "); lcd.print(now.hour()); lcd.print(":"); lcd.print(now.minute()); lcd.print(":"); lcd.print(now.second()); lcd.print("   ");
-  
-  lcd.setCursor(0, 1);
-  lcd.print("T:"); lcd.print(dht.readTemperature(), 1); lcd.print("C H:"); lcd.print(dht.readHumidity(), 1); lcd.print("%   ");
+    if (isStartupActive) {
+        if (millis() - startupTimeMs >= 2000UL) {
+            isStartupActive = false;
+            display.showHome();
+        } else {
+            display.update();
+            return; 
+        }
+    }
 
-  // 2. Test quẹt thẻ RFID
-  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
-    Serial.println("-> RFID: Da quet the!");
-    digitalWrite(LED_G, HIGH);
-    tone(BUZZER, 1500, 100);
-    servo.write(90); // Mở khóa
-    delay(2000);
-    servo.write(0);  // Đóng khóa
-    digitalWrite(LED_G, LOW);
-    rfid.PICC_HaltA();
-  }
+    dhtManager.update();
+    lockManager.update();
+    alarmManager.update();
+    rtcManager.update();
 
-  // 3. Test bấm nút Keypad
-  char key = keypad.getKey();
-  if (key) {
-    Serial.print("-> Keypad: "); Serial.println(key);
-    digitalWrite(LED_R, HIGH);
-    tone(BUZZER, 2000, 50); // Bíp nhẹ khi bấm nút
-    delay(100);
-    digitalWrite(LED_R, LOW);
-  }
+    char key = passwordManager.update();
+    if (key) {
+        display.forceRefreshNextUpdate();
+    }
 
-  delay(100); // Tốc độ lặp tối ưu giúp Wokwi giả lập siêu nhanh
+    // Lấy chuỗi thời gian đã định dạng từ RTCManager đưa sang Display
+    display.setDateTime(rtcManager.getFormattedDateTime());
+
+    float currentTemp = dhtManager.getTemperature();
+    float currentHumi = dhtManager.getHumidity();
+    bool warningActive = dhtManager.isTemperatureOutOfRange() || dhtManager.isHumidityOutOfRange();
+    bool systemLocked = passwordManager.isLocked();
+
+    if (!systemLocked && !lockManager.isOpen()) {
+        rfidManager.update();
+        if (rfidManager.isCardDetected()) {
+            if (rfidManager.isAuthorized()) {
+                lockManager.openDoor();
+                showTemporaryMessage(TemporaryMessage::RfidAccepted, 2000UL);
+                alarmManager.success();
+            } else {
+                showTemporaryMessage(TemporaryMessage::RfidDenied, 2000UL);
+                alarmManager.error();
+            }
+            rfidManager.clearCardState(); 
+        }
+    } else {
+        rfidManager.clearCardState();
+    }
+
+    if (!systemLocked && !lockManager.isOpen()) {
+        if (passwordManager.isCorrect()) {
+            lockManager.openDoor();
+            showTemporaryMessage(TemporaryMessage::PasswordAccepted, 2000UL);
+            alarmManager.success();
+            passwordManager.reset();
+        } else if (passwordManager.wasLastAttemptWrong()) {
+            showTemporaryMessage(TemporaryMessage::PasswordDenied, 2000UL);
+            alarmManager.error();
+            passwordManager.resetWrongAttemptState(); 
+        }
+    }
+
+    display.setTemperature(currentTemp);
+    display.setHumidity(currentHumi);
+    display.setDoorOpen(lockManager.isOpen());
+    display.setLocked(systemLocked);
+    display.setPasswordInput(passwordManager.getInput());
+    display.setCountdown(passwordManager.getLockRemainingMs() / 1000UL);
+
+    bool showMessageActive = (activeMessage != TemporaryMessage::None) && (millis() < messageUntilMs);
+
+    if (showMessageActive) {
+        switch (activeMessage) {
+            case TemporaryMessage::PasswordAccepted:
+                display.showPasswordAccepted();
+                digitalWrite(LED_GREEN_PIN, HIGH);
+                digitalWrite(LED_RED_PIN, LOW);
+                break;
+            case TemporaryMessage::PasswordDenied:
+                display.showPasswordDenied();
+                digitalWrite(LED_GREEN_PIN, LOW);
+                digitalWrite(LED_RED_PIN, HIGH);
+                break;
+            case TemporaryMessage::RfidAccepted:
+                display.showRfidAccepted();
+                digitalWrite(LED_GREEN_PIN, HIGH);
+                digitalWrite(LED_RED_PIN, LOW);
+                break;
+            case TemporaryMessage::RfidDenied:
+                display.showRfidDenied();
+                digitalWrite(LED_GREEN_PIN, LOW);
+                digitalWrite(LED_RED_PIN, HIGH);
+                break;
+            default:
+                break;
+        }
+    } else {
+        activeMessage = TemporaryMessage::None;
+
+        if (systemLocked) {
+            display.showLockCountdown();
+            digitalWrite(LED_GREEN_PIN, LOW);
+            digitalWrite(LED_RED_PIN, HIGH);
+            alarmManager.warning();
+            lastWarningState = true;
+        } else if (warningActive) {
+            display.showWarning();
+            digitalWrite(LED_GREEN_PIN, LOW);
+            digitalWrite(LED_RED_PIN, HIGH);
+            alarmManager.alarm();
+            lastWarningState = true;
+        } else {
+            if (passwordManager.hasInput()) {
+                display.showPasswordEntry();
+            } else {
+                display.showHome();
+            }
+            
+            digitalWrite(LED_GREEN_PIN, HIGH);
+            digitalWrite(LED_RED_PIN, LOW);
+
+            if (lastWarningState) {
+                alarmManager.stop();
+                lastWarningState = false;
+            }
+        }
+    }
+
+    display.update();
 }
